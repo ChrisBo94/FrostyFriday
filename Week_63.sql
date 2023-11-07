@@ -62,7 +62,7 @@ select
         *
     from table(get_query_operator_stats($last_id))
     --where operator_type = 'Join' 
-    --and row_multipliar > 1
+    --and row_multiplier > 1
     order by step_id, operator_id;
     
 -- So need to use get_query_operator_stats function instead
@@ -81,19 +81,19 @@ calc_input_rows as (
         a.join_condition,
         a.output_rows,
         b.output_rows as input_rows,
-        a.output_rows / b.output_rows as row_multipliar
+        a.output_rows / b.output_rows as row_multiplier
     from joins a
     join joins b ON array_contains(a.operator_id,b.parent_operators)
 )
 select   
     join_condition,
-    row_multipliar
+    row_multiplier
 from calc_input_rows
-where row_multipliar > 1;
+where row_multiplier > 1;
 
 
 CREATE OR REPLACE FUNCTION FF_WEEK_63_UDF (QUERY_ID VARCHAR)
-RETURNS TABLE(GUILTY_JOIN STRING, row_multipliar FLOAT)
+RETURNS TABLE(GUILTY_JOIN STRING, row_multiplier FLOAT)
 LANGUAGE SQL
 AS
 $$
@@ -112,15 +112,15 @@ calc_input_rows as (
         a.join_condition,
         a.output_rows,
         b.output_rows as input_rows,
-        a.output_rows / b.output_rows as row_multipliar
+        a.output_rows / b.output_rows as row_multiplier
     from joins a
     join joins b ON array_contains(a.operator_id,b.parent_operators)
 )
 select   
     join_condition,
-    row_multipliar
+    row_multiplier
 from calc_input_rows
-where row_multipliar > 1
+where row_multiplier > 1
 
 $$; 
 
