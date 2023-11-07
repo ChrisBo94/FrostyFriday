@@ -22,6 +22,8 @@ SELECT 'd' FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT
 
 ;
 
+select count(*) from t1;
+
 -- Create table t2 and insert one 'b' value
 CREATE TABLE t2 (value CHAR(1));
 INSERT INTO t2 (value) VALUES ('b');
@@ -56,29 +58,70 @@ FROM t1
     LEFT JOIN t3 ON t1.value = t3.value
     LEFT JOIN t4 ON t1.value = t4.value;
 
--- So need to use get_query_operator_stats function instead
 select
-        --operator_id,
-        operator_attributes:equality_join_condition::STRING as GUILTY_JOIN,
-        operator_statistics:output_rows / operator_statistics:input_rows as row_multipliar
+        *
+    from table(get_query_operator_stats($last_id))
+    --where operator_type = 'Join' 
+    --and row_multipliar > 1
+    order by step_id, operator_id;
+    
+-- So need to use get_query_operator_stats function instead
+with joins as (
+    select
+        operator_id,
+        parent_operators,
+        operator_attributes:equality_join_condition::STRING as join_condition,
+        operator_statistics:output_rows as output_rows
     from table(get_query_operator_stats($last_id))
     where operator_type = 'Join' 
-    and row_multipliar > 1
-    order by step_id, operator_id;
+),
+calc_input_rows as (
+    select
+        a.operator_id,
+        a.join_condition,
+        a.output_rows,
+        b.output_rows as input_rows,
+        a.output_rows / b.output_rows as row_multipliar
+    from joins a
+    join joins b ON array_contains(a.operator_id,b.parent_operators)
+)
+select   
+    join_condition,
+    row_multipliar
+from calc_input_rows
+where row_multipliar > 1;
+
 
 CREATE OR REPLACE FUNCTION FF_WEEK_63_UDF (QUERY_ID VARCHAR)
 RETURNS TABLE(GUILTY_JOIN STRING, row_multipliar FLOAT)
 LANGUAGE SQL
 AS
 $$
-     select
-        --operator_id,
-        operator_attributes:equality_join_condition::STRING as GUILTY_JOIN,
-        operator_statistics:output_rows / operator_statistics:input_rows as row_multipliar
-    from table(get_query_operator_stats(QUERY_ID))
+    with joins as (
+    select
+        operator_id,
+        parent_operators,
+        operator_attributes:equality_join_condition::STRING as join_condition,
+        operator_statistics:output_rows as output_rows
+    from table(get_query_operator_stats($last_id))
     where operator_type = 'Join' 
-    and row_multipliar > 1
-    order by step_id, operator_id
+),
+calc_input_rows as (
+    select
+        a.operator_id,
+        a.join_condition,
+        a.output_rows,
+        b.output_rows as input_rows,
+        a.output_rows / b.output_rows as row_multipliar
+    from joins a
+    join joins b ON array_contains(a.operator_id,b.parent_operators)
+)
+select   
+    join_condition,
+    row_multipliar
+from calc_input_rows
+where row_multipliar > 1
+
 $$; 
 
 select * from
